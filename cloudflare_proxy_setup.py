@@ -1,43 +1,5 @@
 #!/usr/bin/env python3
-"""
-Create/check a GitHub repository, dispatch a GitHub Actions workflow,
-install cloudflared if needed, and start an SSH SOCKS5 proxy tunnel.
 
-Optional Python package:
-  PyNaCl                 Enables GitHub Actions secret creation via REST API.
-
-Authentication environment, choose one:
-  GITHUB_TOKEN          Classic GitHub token with repo, workflow, admin:public_key.
-  GH_TOKEN              Fallback token name, used when GITHUB_TOKEN is absent.
-  GITHUB_OAUTH_CLIENT_ID OAuth App client ID for Device Flow fallback.
-  GITHUB_OAUTH_CLIENT_SECRET optional OAuth App client secret for Device Flow.
-                        Built-in CLIENT_ID/CLIENT_SECRET below are used if env vars are absent.
-
-Optional environment:
-  GITHUB_OAUTH_SCOPES  defaults to: repo workflow admin:public_key.
-  GITHUB_OAUTH_OPEN_BROWSER true/false, defaults to true.
-  GITHUB_TOKEN_CACHE_PATH optional path for saved OAuth token.
-  GITHUB_REPO_PRIVATE  true/false, defaults to false.
-  GITHUB_WORKFLOW_ID   workflow file name or numeric ID, defaults to deploy.yml.
-  GITHUB_REF           branch/tag ref; defaults to the repository default branch.
-  WORKFLOW_POLL        true/false, defaults to false.
-  WORKFLOW_POLL_TIMEOUT seconds, defaults to 60 when polling is enabled.
-  DISPATCH_WAIT_SECONDS seconds, defaults to 30 when polling is disabled.
-  TUNNEL_URL_TIMEOUT   seconds to wait for trycloudflare hostname, defaults to 180.
-  SSH_KEY_PATH         defaults to ~/.ssh/id_rsa.
-  SSH_USER             defaults to proxyuser.
-  SSH_HOST             optional hostname for a custom workflow (no unsafe default).
-  SSH_HOST_KEY         required OpenSSH public host key when SSH_HOST is supplied.
-  SOCKS_HOST           local bind IP, defaults to 127.0.0.1.
-  SOCKS_PORT           defaults to 1081.
-  CLOUDFLARED_LOCAL_PORT local TCP bridge port, defaults to 1082.
-  CLOUDFLARED_ACCESS_MODE tcp/ssh, defaults to tcp.
-  CLOUDFLARED_INSTALL_DIR optional installation directory.
-  PROXY_WATCHDOG       true/false, defaults to true.
-  WATCHDOG_INTERVAL_SECONDS seconds between background health checks, defaults to 60.
-  PROXY_TEST_HOST      external host used for SOCKS5 health checks, defaults to www.cloudflare.com.
-  PROXY_TEST_PORT      external port used for SOCKS5 health checks, defaults to 443.
-"""
 
 from __future__ import annotations
 

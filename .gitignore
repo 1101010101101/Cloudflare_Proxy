@@ -21,6 +21,7 @@ phctl-src/
 
 # UI development screenshots
 CloudflareProxyApp/*preview*.png
+CloudflareProxyApp/Assets/*preview*.png
 
 # Superseded self-contained UI implementation kept only as a local backup
 CloudflareProxyApp/*.cs

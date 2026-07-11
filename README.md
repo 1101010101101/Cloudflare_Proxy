@@ -26,3 +26,8 @@ curl.exe --socks5-hostname 127.0.0.1:1081 --max-time 20 -I https://www.cloudflar
 ```
 
 Ожидается HTTP `200`.
+
+## Telegram
+https://t.me/hidmyname
+
+@oleg23585

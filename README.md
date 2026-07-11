@@ -9,11 +9,13 @@ SOCKS5-прокси через GitHub Actions и Cloudflare Quick Tunnel.
 127.0.0.1:1081 socks5
 ```
 
-## Видео для настройки
+## Видео для настройки и полезные сылки 
 
+https://youtu.be/6s2y27yczBg
 
+https://chromewebstore.google.com/detail/proxy-switchyomega-3-zero/pfnededegaaopdmhkdmcofjmoldfiped
 
-
+https://www.proxifier.com/download/
 
 ## Проверка прокси
 

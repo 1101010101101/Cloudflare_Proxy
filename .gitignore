@@ -1,0 +1,41 @@
+# Build output and caches
+**/bin/
+**/obj/
+**/bin-*/
+**/obj-*/
+dist/
+dist-*/
+__pycache__/
+*.py[cod]
+
+# Local tool state
+.agents/
+.codex-pydeps/
+.dotnet-home/
+.dotnet-sandbox/
+NuGet.sandbox.config
+
+# Local notes and unrelated checked-out projects
+старя информация.txt
+phctl-src/
+
+# UI development screenshots
+CloudflareProxyApp/*preview*.png
+
+# Superseded self-contained UI implementation kept only as a local backup
+CloudflareProxyApp/*.cs
+CloudflareProxyApp/*.csproj
+CloudflareProxyApp/MainWindow.xaml
+CloudflareProxyApp/Assets/*.svg
+README-LITE.md
+README-v21.md
+build-ui.ps1
+build-ui-v21.ps1
+
+# Logs and local secrets/state
+*.log
+github_token.txt
+proxy-processes.json
+known_hosts
+.env
+.env.*

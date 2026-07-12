@@ -1,6 +1,6 @@
 # Cloudflare Proxy
 
-Лёгкое Windows-приложение с графическим интерфейсом, которое поднимает локальный
+приложение которое поднимает локальный
 SOCKS5-прокси через GitHub Actions и Cloudflare Quick Tunnel.
 
 После подключения прокси доступен по умолчанию здесь:
@@ -9,62 +9,18 @@ SOCKS5-прокси через GitHub Actions и Cloudflare Quick Tunnel.
 127.0.0.1:1081 socks5
 ```
 
-## Возможности
+## Видео для настройки 
 
-- один компактный EXE без соседних DLL и папок;
-- автоматическая загрузка Python, OpenSSH и `cloudflared` при необходимости;
-- проверка SHA-256 загружаемых Python и OpenSSH;
-- авторизация GitHub через браузер с отдельной кнопкой копирования кода;
-- встроенные настройки IP и порта, автозапуска, запуска в трее и автоподключения;
-- сворачивание в системный трей и запрет полноэкранного развёртывания;
-- отображение этапов подключения, внешнего IP, страны и задержки;
-- watchdog с проверкой настоящего SOCKS5 CONNECT и восстановлением туннеля;
-- строгая проверка SSH host key из аутентифицированного GitHub artifact.
+https://youtu.be/6s2y27yczBg
 
-## Системные требования
+## полезные сылки 
 
-- Windows 10/11 x64;
-- доступ к GitHub и Cloudflare;
-- .NET Framework 4.8, уже присутствующий в современных Windows 10/11.
+https://chromewebstore.google.com/detail/proxy-switchyomega-3-zero/pfnededegaaopdmhkdmcofjmoldfiped
 
-Устанавливать Python, `pip`, OpenSSH или .NET 10 пользователю не требуется.
+https://www.proxifier.com/download/
 
-## Первый запуск
-
-1. Запустите `CloudflareProxy.exe`.
-2. Нажмите **Подключить прокси**.
-3. Приложение скачает недостающую среду в
-   `%LOCALAPPDATA%\CloudflareProxy\runtime`.
-4. В открывшемся GitHub нажмите продолжить и введите показанный приложением код.
-   Код можно скопировать отдельной кнопкой.
-5. После завершения интерфейс покажет локальный SOCKS5-адрес.
-
-OAuth-токен, настройки и состояние хранятся локально в
-`%APPDATA%\cloudflare_proxy` и не входят в EXE или репозиторий.
-
-## Сборка
-
-Для сборки нужен Windows и .NET SDK 10:
-
-```powershell
-./build-lite.ps1
-```
-
-Результат:
-
-```text
-dist-lite/CloudflareProxy.exe
-```
-
-GitHub Actions выполняет те же тесты и прикладывает готовый EXE как artifact к
-каждому запуску workflow.
-
-## Тесты backend
-
-```powershell
-python -m pip install -r requirements.txt
-python -m unittest discover -v
-```
+стати если будите использовать proxifier там при какихто случаях придётся перезагружать приложение которым вы пользуесесь чтобы получить доступ в интернет на нём 
+и осторожней с proxifier там гит хаб закроет акшионс через 6 чисов после его создания корче если у вас совсем попал инет лучше закрыть proxifier он находится в тре
 
 ## Проверка прокси
 
@@ -74,8 +30,7 @@ curl.exe --socks5-hostname 127.0.0.1:1081 --max-time 20 -I https://www.cloudflar
 
 Ожидается HTTP `200`.
 
-## Важное ограничение
+## Telegram
+https://t.me/hidmyname
 
-Cloudflare Quick Tunnel — временный сервис без SLA. Приложение умеет
-перезапускать упавший туннель, но не может гарантировать доступность GitHub,
-Cloudflare или интернет-соединения пользователя.
+@oleg23585

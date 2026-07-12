@@ -18,6 +18,7 @@ https://youtu.be/6s2y27yczBg
 https://chromewebstore.google.com/detail/proxy-switchyomega-3-zero/pfnededegaaopdmhkdmcofjmoldfiped
 
 https://www.proxifier.com/download/
+
 стати если будите использовать proxifier там при какихто случаях придётся перезагружать приложение которым вы пользуесесь чтобы получить доступ в интернет на нём 
 и осторожней с proxifier там гит хаб закроет акшионс через 6 чисов после его создания корче если у вас совсем попал инет лучше закрыть proxifier он находится в тре
 

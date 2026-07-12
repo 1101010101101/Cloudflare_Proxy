@@ -397,7 +397,7 @@
                                    Foreground="#8196A5" FontSize="9.5" />
                         <TextBlock x:Name="LatencyText" Grid.Column="1" Text="пинг: —"
                                    Foreground="#657F90" FontSize="9.5" TextAlignment="Center" />
-                        <TextBlock Grid.Column="2" Text="2.1" Foreground="#8196A5" FontSize="9.5"
+                        <TextBlock Grid.Column="2" Text="2.1.1" Foreground="#8196A5" FontSize="9.5"
                                    TextAlignment="Right" />
                     </Grid>
                 </Grid>

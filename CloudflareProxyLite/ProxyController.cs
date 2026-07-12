@@ -53,6 +53,7 @@ public sealed class ProxyController : IDisposable
             WorkingDirectory = Path.GetDirectoryName(script)!,
             UseShellExecute = false,
             CreateNoWindow = true,
+            WindowStyle = ProcessWindowStyle.Hidden,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             StandardOutputEncoding = Encoding.UTF8,

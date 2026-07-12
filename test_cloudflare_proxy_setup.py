@@ -2,6 +2,7 @@ import base64
 import io
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 import zipfile
@@ -92,6 +93,18 @@ class ConfigurationTests(unittest.TestCase):
         with mock.patch.object(proxy.os, "name", "nt"):
             with mock.patch.object(proxy.subprocess, "run", return_value=completed):
                 self.assertEqual(proxy.process_command_line(123), command_line)
+
+    @unittest.skipUnless(os.name == "nt", "Windows console flags are Windows-specific")
+    def test_version_check_cannot_open_a_console_window(self):
+        completed = subprocess.CompletedProcess(["cloudflared.exe", "--version"], 0, "", "")
+        with mock.patch.object(proxy.subprocess, "run", return_value=completed) as run:
+            self.assertTrue(proxy.run_version_check("cloudflared.exe"))
+
+        options = run.call_args.kwargs
+        self.assertTrue(options["creationflags"] & subprocess.CREATE_NO_WINDOW)
+        self.assertIsNotNone(options["startupinfo"])
+        self.assertTrue(options["startupinfo"].dwFlags & subprocess.STARTF_USESHOWWINDOW)
+        self.assertEqual(options["startupinfo"].wShowWindow, subprocess.SW_HIDE)
 
     def test_windows_command_line_handles_missing_stdout(self):
         completed = proxy.subprocess.CompletedProcess([], 0, stdout=None, stderr=None)

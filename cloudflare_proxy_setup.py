@@ -247,6 +247,15 @@ def windows_hidden_creationflags() -> int:
     return subprocess.CREATE_NO_WINDOW
 
 
+def windows_hidden_startupinfo() -> Any:
+    if os.name != "nt":
+        return None
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startupinfo.wShowWindow = subprocess.SW_HIDE
+    return startupinfo
+
+
 def windows_detached_hidden_creationflags() -> int:
     if os.name != "nt":
         return 0
@@ -367,6 +376,7 @@ def process_command_line(pid: int) -> str | None:
                 timeout=10,
                 check=False,
                 creationflags=windows_hidden_creationflags(),
+                startupinfo=windows_hidden_startupinfo(),
             )
         except (OSError, subprocess.SubprocessError, UnicodeError):
             return None
@@ -405,6 +415,7 @@ def terminate_owned_process(pid: int, fragments: list[str]) -> bool:
                 timeout=10,
                 check=False,
                 creationflags=windows_hidden_creationflags(),
+                startupinfo=windows_hidden_startupinfo(),
             )
         else:
             os.kill(pid, 15)
@@ -547,6 +558,7 @@ def stop_duplicate_watchdogs(exclude_pid: int | None = None) -> None:
             timeout=10,
             check=False,
             creationflags=windows_hidden_creationflags(),
+            startupinfo=windows_hidden_startupinfo(),
         )
     except (OSError, subprocess.SubprocessError):
         pass
@@ -617,6 +629,7 @@ def start_watchdog_if_needed(restart: bool = False) -> None:
     }
     if os.name == "nt":
         popen_kwargs["creationflags"] = windows_detached_hidden_creationflags()
+        popen_kwargs["startupinfo"] = windows_hidden_startupinfo()
         popen_kwargs["close_fds"] = True
     else:
         popen_kwargs["start_new_session"] = True
@@ -659,6 +672,7 @@ def stop_watchdog_process() -> None:
                 timeout=10,
                 check=False,
                 creationflags=windows_hidden_creationflags(),
+                startupinfo=windows_hidden_startupinfo(),
             )
         except (OSError, subprocess.SubprocessError):
             pass
@@ -1369,6 +1383,8 @@ def read_ssh_public_key() -> str:
             text=True,
             timeout=15,
             check=False,
+            creationflags=windows_hidden_creationflags(),
+            startupinfo=windows_hidden_startupinfo(),
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise ScriptError(f"Could not derive SSH public key from {key}: {exc}") from exc
@@ -1544,6 +1560,8 @@ def run_version_check(binary: str) -> bool:
             text=True,
             timeout=15,
             check=False,
+            creationflags=windows_hidden_creationflags(),
+            startupinfo=windows_hidden_startupinfo(),
         )
     except (OSError, subprocess.SubprocessError):
         return False
@@ -1796,6 +1814,8 @@ def generate_ssh_key(path: Path) -> None:
             text=True,
             timeout=30,
             check=False,
+            creationflags=windows_hidden_creationflags(),
+            startupinfo=windows_hidden_startupinfo(),
         )
     except (OSError, subprocess.SubprocessError) as exc:
         raise ScriptError(f"Could not generate SSH key at {path}: {exc}") from exc
@@ -1939,6 +1959,7 @@ def cleanup_stale_ssh_tunnels(port: int, bind_host: str = DEFAULT_SOCKS_HOST) ->
             timeout=10,
             check=False,
             creationflags=windows_hidden_creationflags(),
+            startupinfo=windows_hidden_startupinfo(),
         )
     except (OSError, subprocess.SubprocessError):
         return
@@ -1970,6 +1991,7 @@ def stop_cloudflared_access_listeners(local_port: int | None = None) -> None:
             timeout=10,
             check=False,
             creationflags=windows_hidden_creationflags(),
+            startupinfo=windows_hidden_startupinfo(),
         )
     except (OSError, subprocess.SubprocessError):
         return
@@ -2003,6 +2025,7 @@ def stop_ssh_tunnels(port: int | None = None) -> None:
             timeout=10,
             check=False,
             creationflags=windows_hidden_creationflags(),
+            startupinfo=windows_hidden_startupinfo(),
         )
     except (OSError, subprocess.SubprocessError):
         return
@@ -2069,6 +2092,7 @@ def start_cloudflared_access_listener(cloudflared: str, ssh_host: str, local_por
     }
     if os.name == "nt":
         popen_kwargs["creationflags"] = windows_detached_hidden_creationflags()
+        popen_kwargs["startupinfo"] = windows_hidden_startupinfo()
         popen_kwargs["close_fds"] = True
     else:
         popen_kwargs["start_new_session"] = True
@@ -2147,6 +2171,7 @@ def start_ssh_tunnel(cloudflared: str, tunnel_info: TunnelInfo) -> subprocess.Po
     }
     if os.name == "nt":
         popen_kwargs["creationflags"] = windows_detached_hidden_creationflags()
+        popen_kwargs["startupinfo"] = windows_hidden_startupinfo()
         popen_kwargs["close_fds"] = True
     else:
         popen_kwargs["start_new_session"] = True

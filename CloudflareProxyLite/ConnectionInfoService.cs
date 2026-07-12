@@ -45,6 +45,7 @@ public static class ConnectionInfoService
                         " --max-time 12 https://www.cloudflare.com/cdn-cgi/trace",
             UseShellExecute = false,
             CreateNoWindow = true,
+            WindowStyle = ProcessWindowStyle.Hidden,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             StandardOutputEncoding = Encoding.UTF8,

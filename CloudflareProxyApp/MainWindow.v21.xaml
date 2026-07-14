@@ -357,21 +357,34 @@
                     </StackPanel>
                 </Border>
 
-                <Grid Grid.Row="3" Margin="14,14,14,0">
-                    <Button x:Name="StartButton" Style="{StaticResource ConnectButton}" Click="Start_Click">
+                <StackPanel Grid.Row="3" Margin="14,14,14,0">
+                    <Grid Height="56">
+                        <Button x:Name="StartButton" Style="{StaticResource ConnectButton}" Click="Start_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="➜" FontSize="17" Margin="0,-1,9,0" />
+                                <TextBlock Text="Подключить прокси" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="StopButton" Style="{StaticResource DisconnectButton}"
+                                Visibility="Collapsed" Click="Stop_Click">
+                            <StackPanel Orientation="Horizontal">
+                                <TextBlock Text="●" Foreground="#D55464" FontSize="11" Margin="0,0,9,0" />
+                                <TextBlock Text="Отключить прокси" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                    <Button x:Name="TrafficRoutingButton" Height="35" Margin="0,8,0,0"
+                            Background="#EEF6F9" BorderBrush="#CFE2EA" BorderThickness="1"
+                            Foreground="#365B70" FontSize="11.5" FontWeight="SemiBold" Cursor="Hand"
+                            IsEnabled="False" Click="TrafficRouting_Click">
                         <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="➜" FontSize="17" Margin="0,-1,9,0" />
-                            <TextBlock Text="Подключить прокси" />
+                            <TextBlock Text="⇄" Foreground="#159FD6" FontSize="16" Margin="0,-1,8,0" />
+                            <TextBlock x:Name="TrafficRoutingButtonText" Text="Пропускать приложения через прокси" />
                         </StackPanel>
                     </Button>
-                    <Button x:Name="StopButton" Style="{StaticResource DisconnectButton}"
-                            Visibility="Collapsed" Click="Stop_Click">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock Text="●" Foreground="#D55464" FontSize="11" Margin="0,0,9,0" />
-                            <TextBlock Text="Отключить прокси" />
-                        </StackPanel>
-                    </Button>
-                </Grid>
+                    <TextBlock x:Name="TrafficRoutingStatusText" Text="Трафик приложений идёт напрямую"
+                               Foreground="#8196A5" FontSize="9.5" TextAlignment="Center" Margin="0,4,0,0" />
+                </StackPanel>
 
                 <Grid Grid.Row="4" Margin="16,8,16,10">
                     <Grid.RowDefinitions>
@@ -397,7 +410,7 @@
                                    Foreground="#8196A5" FontSize="9.5" />
                         <TextBlock x:Name="LatencyText" Grid.Column="1" Text="пинг: —"
                                    Foreground="#657F90" FontSize="9.5" TextAlignment="Center" />
-                        <TextBlock Grid.Column="2" Text="2.1.1" Foreground="#8196A5" FontSize="9.5"
+                        <TextBlock Grid.Column="2" Text="2.2 beta" Foreground="#8196A5" FontSize="9.5"
                                    TextAlignment="Right" />
                     </Grid>
                 </Grid>
@@ -459,6 +472,78 @@
                                 Visibility="Collapsed">
                             <TextBlock Text="0.0.0.0 откроет прокси для локальной сети. Разрешайте доступ только доверенным устройствам."
                                        Foreground="#8A6525" FontSize="10" TextWrapping="Wrap" />
+                        </Border>
+
+                        <Border Height="1" Background="#DCE8EE" Margin="0,13,0,11" />
+                        <TextBlock Text="МАРШРУТИЗАЦИЯ ПРИЛОЖЕНИЙ" Foreground="#8CA0AD" FontSize="10"
+                                   FontWeight="SemiBold" />
+                        <CheckBox x:Name="SettingsEnableRoutingOnConnectBox" Style="{StaticResource SettingsSwitch}"
+                                  Content="Включать после подключения прокси" />
+                        <TextBlock Text="Режим и отдельный список приложений" Foreground="#718799"
+                                   FontSize="10.5" Margin="0,8,0,4" />
+                        <TabControl x:Name="SettingsRoutingModeTabs" Height="184" Background="Transparent"
+                                    BorderBrush="#C9DEE8" FontSize="10.5">
+                            <TabItem Header="Белый · через прокси">
+                                <Border Background="White" Padding="8">
+                                    <StackPanel>
+                                        <TextBlock Text="Только эти приложения используют прокси"
+                                                   Foreground="#159FD6" FontSize="9.5" Margin="0,0,0,6" />
+                                        <ListBox x:Name="SettingsProxyApplicationsList" Height="88"
+                                                 SelectionMode="Extended" FontFamily="Cascadia Mono" FontSize="10"
+                                                 Background="#F8FCFE" BorderBrush="#D5E3EA"
+                                                 HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                 AllowDrop="True" PreviewDragOver="RoutingApplications_DragOver"
+                                                 Drop="RoutingApplications_Drop" KeyDown="RoutingApplications_KeyDown" />
+                                        <Grid Margin="0,6,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="7" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Button Grid.Column="0" Content="Добавить EXE…" Height="28"
+                                                    Background="#EEF6F9" BorderBrush="#CFE2EA" Foreground="#45687A"
+                                                    Cursor="Hand" Click="AddProxyRoutingApplications_Click" />
+                                            <Button Grid.Column="2" Content="Удалить" Height="28"
+                                                    Background="#F7F9FA" BorderBrush="#D8E3E9" Foreground="#667F8E"
+                                                    Cursor="Hand" Click="RemoveProxyRoutingApplications_Click" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </TabItem>
+                            <TabItem Header="Чёрный · напрямую">
+                                <Border Background="White" Padding="8">
+                                    <StackPanel>
+                                        <TextBlock Text="Эти приложения никогда не используют прокси"
+                                                   Foreground="#526F80" FontSize="9.5" Margin="0,0,0,6" />
+                                        <ListBox x:Name="SettingsDirectApplicationsList" Height="88"
+                                                 SelectionMode="Extended" FontFamily="Cascadia Mono" FontSize="10"
+                                                 Background="#F8FCFE" BorderBrush="#D5E3EA"
+                                                 HorizontalContentAlignment="Stretch" ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                                                 AllowDrop="True" PreviewDragOver="RoutingApplications_DragOver"
+                                                 Drop="RoutingApplications_Drop" KeyDown="RoutingApplications_KeyDown" />
+                                        <Grid Margin="0,6,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="7" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Button Grid.Column="0" Content="Добавить EXE…" Height="28"
+                                                    Background="#EEF6F9" BorderBrush="#CFE2EA" Foreground="#45687A"
+                                                    Cursor="Hand" Click="AddDirectRoutingApplications_Click" />
+                                            <Button Grid.Column="2" Content="Удалить" Height="28"
+                                                    Background="#F7F9FA" BorderBrush="#D8E3E9" Foreground="#667F8E"
+                                                    Cursor="Hand" Click="RemoveDirectRoutingApplications_Click" />
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </TabItem>
+                        </TabControl>
+                        <TextBlock Text="Можно выбрать сразу несколько EXE или перетащить их в нужный список. Delete удаляет выбранные строки."
+                                   Foreground="#8196A5" FontSize="9.4" TextWrapping="Wrap" Margin="1,6,1,0" />
+                        <Border Background="#EAF6FB" BorderBrush="#C8E4EF" BorderThickness="1"
+                                CornerRadius="6" Padding="9" Margin="0,8,0,0">
+                            <TextBlock Foreground="#527487" FontSize="9.8" TextWrapping="Wrap"
+                                       Text="Профиль настроен под TCP-only SSH SOCKS5: TCP выбранных приложений идёт через прокси, QUIC отключается, а неподдерживаемый UDP остаётся прямым. При сбое TUN выключается и интернет автоматически возвращается напрямую." />
                         </Border>
 
                         <Border Height="1" Background="#DCE8EE" Margin="0,13,0,11" />

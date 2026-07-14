@@ -49,15 +49,19 @@ public partial class MainWindow : Window
         };
 
     private readonly ProxyController _controller = new();
+    private readonly TrafficRoutingController _trafficRouting = new();
     private readonly CancellationTokenSource _shutdown = new();
     private readonly Forms.NotifyIcon _trayIcon;
     private readonly Forms.ToolStripMenuItem _trayToggleItem;
     private readonly DispatcherTimer _sessionTimer;
+    private readonly DispatcherTimer _trafficRoutingTimer;
     private CancellationTokenSource? _connectionInfoCancellation;
     private AppSettings _settings = SettingsService.Load();
     private bool _proxyRunning;
     private bool _allowExit;
     private bool _trayHintShown;
+    private bool _trafficRoutingBusy;
+    private string _lastTrafficRoutingState = "stopped";
     private DateTime _sessionStarted;
 
     public MainWindow()
@@ -92,6 +96,10 @@ public partial class MainWindow : Window
             var elapsed = DateTime.Now - _sessionStarted;
             SessionTimeText.Text = $"{(int)elapsed.TotalHours:00}:{elapsed.Minutes:00}:{elapsed.Seconds:00}";
         };
+
+        _trafficRoutingTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(2) };
+        _trafficRoutingTimer.Tick += (_, _) => RefreshTrafficRoutingStatus();
+        _trafficRoutingTimer.Start();
 
         Loaded += async (_, _) =>
         {
@@ -154,8 +162,10 @@ public partial class MainWindow : Window
             _connectionInfoCancellation?.Dispose();
             _shutdown.Cancel();
             _controller.Dispose();
+            _trafficRouting.Dispose();
             _shutdown.Dispose();
             _sessionTimer.Stop();
+            _trafficRoutingTimer.Stop();
             _trayIcon.Visible = false;
             _trayIcon.Icon?.Dispose();
             _trayIcon.Dispose();
@@ -229,6 +239,8 @@ public partial class MainWindow : Window
         StatusTitle.Text = "Отключение";
         try
         {
+            if (_trafficRouting.IsActive || _trafficRouting.IsBusy)
+                await DisableTrafficRoutingAsync(silent: true);
             var exitCode = await _controller.RunAsync("--stop --json-events", HandleEvent, AppendLog, _shutdown.Token);
             if (exitCode != 0)
                 ShowError("Не удалось полностью остановить прокси.");
@@ -298,6 +310,7 @@ public partial class MainWindow : Window
         StopButton.Visibility = Visibility.Visible;
         _trayToggleItem.Text = "Отключиться";
         _trayIcon.Text = "Cloudflare Proxy — подключён";
+        UpdateTrafficRoutingUi();
         if (!_sessionTimer.IsEnabled)
         {
             _sessionStarted = DateTime.Now;
@@ -313,11 +326,14 @@ public partial class MainWindow : Window
             LatencyText.Text = "пинг: —";
             SetFlagVisual("--");
         }
+        if (!wasRunning && _settings.EnableTrafficRoutingOnConnect && !_trafficRouting.IsActive)
+            _ = EnableTrafficRoutingAsync(showError: false);
     }
 
     private void ShowStopped()
     {
         _connectionInfoCancellation?.Cancel();
+        _trafficRouting.RequestStop();
         _proxyRunning = false;
         StatusTitle.Text = "Прокси выключен";
         StatusMessage.Text = "Локальный SOCKS5 сейчас не принимает соединения";
@@ -336,6 +352,7 @@ public partial class MainWindow : Window
         _sessionTimer.Stop();
         SessionTimeText.Text = "00:00:00";
         LatencyText.Text = "пинг: —";
+        UpdateTrafficRoutingUi("Прокси выключен — трафик идёт напрямую");
         ResetStages();
     }
 
@@ -573,6 +590,7 @@ public partial class MainWindow : Window
         StartButton.IsEnabled = !busy;
         StopButton.IsEnabled = !busy;
         _trayToggleItem.Enabled = !busy;
+        UpdateTrafficRoutingUi();
         if (busy)
         {
             FlagPlate.Visibility = Visibility.Collapsed;
@@ -675,6 +693,120 @@ public partial class MainWindow : Window
         }
     }
 
+    private async void TrafficRouting_Click(object sender, RoutedEventArgs e)
+    {
+        if (_trafficRouting.IsActive)
+            await DisableTrafficRoutingAsync();
+        else
+            await EnableTrafficRoutingAsync();
+    }
+
+    private async Task EnableTrafficRoutingAsync(bool showError = true)
+    {
+        if (_trafficRoutingBusy || _trafficRouting.IsActive)
+            return;
+        if (!_proxyRunning)
+        {
+            UpdateTrafficRoutingUi("Сначала подключите SOCKS5-прокси");
+            return;
+        }
+
+        _trafficRoutingBusy = true;
+        StartButton.IsEnabled = false;
+        StopButton.IsEnabled = false;
+        UpdateTrafficRoutingUi("Подготавливаю маршрутизацию…");
+        try
+        {
+            await _trafficRouting.EnableAsync(_settings, (progress, message) =>
+                Dispatcher.BeginInvoke(new Action(() =>
+                    UpdateTrafficRoutingUi(progress < 100 ? $"{message} — {progress}%" : message))), _shutdown.Token);
+            UpdateTrafficRoutingUi("Маршрутизация включена; при сбое интернет вернётся напрямую");
+        }
+        catch (OperationCanceledException) when (_shutdown.IsCancellationRequested)
+        {
+        }
+        catch (Exception exception)
+        {
+            _trafficRouting.RequestStop();
+            AppendLog("Маршрутизация: " + exception.Message);
+            UpdateTrafficRoutingUi(exception.Message);
+            if (showError)
+                System.Windows.MessageBox.Show(this, exception.Message, "Не удалось включить маршрутизацию",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            _trafficRoutingBusy = false;
+            StartButton.IsEnabled = !_controller.IsBusy;
+            StopButton.IsEnabled = !_controller.IsBusy;
+            UpdateTrafficRoutingUi(_trafficRouting.LastStatus.Message);
+        }
+    }
+
+    private async Task DisableTrafficRoutingAsync(bool silent = false)
+    {
+        if (_trafficRoutingBusy)
+        {
+            _trafficRouting.RequestStop();
+            return;
+        }
+        _trafficRoutingBusy = true;
+        UpdateTrafficRoutingUi("Возвращаю прямой интернет…");
+        try
+        {
+            await _trafficRouting.StopAsync(_shutdown.Token);
+            UpdateTrafficRoutingUi("Трафик приложений идёт напрямую");
+        }
+        catch (Exception exception)
+        {
+            _trafficRouting.RequestStop();
+            AppendLog("Остановка маршрутизации: " + exception.Message);
+            if (!silent)
+                System.Windows.MessageBox.Show(this,
+                    "Команда аварийного отключения отправлена. " + exception.Message,
+                    "Остановка маршрутизации", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+        finally
+        {
+            _trafficRoutingBusy = false;
+            UpdateTrafficRoutingUi();
+        }
+    }
+
+    private void RefreshTrafficRoutingStatus()
+    {
+        var status = _trafficRouting.PollStatus();
+        if (status.State != _lastTrafficRoutingState)
+        {
+            if (status.State == "fail_open" && _settings.ShowTrayNotifications)
+                _trayIcon.ShowBalloonTip(3500, "Cloudflare Proxy",
+                    "Прокси перестал отвечать. Маршрутизация отключена, интернет работает напрямую.",
+                    Forms.ToolTipIcon.Warning);
+            _lastTrafficRoutingState = status.State;
+        }
+        UpdateTrafficRoutingUi(status.Message);
+    }
+
+    private void UpdateTrafficRoutingUi(string? message = null)
+    {
+        if (TrafficRoutingButton is null)
+            return;
+        var active = _trafficRouting.IsActive;
+        TrafficRoutingButtonText.Text = active
+            ? "Вернуть прямой интернет"
+            : "Пропускать приложения через прокси";
+        TrafficRoutingButton.IsEnabled = _proxyRunning && !_controller.IsBusy && !_trafficRoutingBusy;
+        TrafficRoutingButton.Background = BrushFromHex(active ? "#E8F7F2" : "#EEF6F9");
+        TrafficRoutingButton.BorderBrush = BrushFromHex(active ? "#9EDCCB" : "#CFE2EA");
+        TrafficRoutingStatusText.Foreground = BrushFromHex(
+            _trafficRouting.LastStatus.State is "fail_open" or "error" ? "#B46D28" : "#8196A5");
+        TrafficRoutingStatusText.Text = message ?? (active
+            ? (_settings.TrafficRoutingMode == TrafficRoutingModes.Whitelist
+                ? "Белый список: выбранные приложения через прокси"
+                : "Чёрный список: остальные приложения через прокси")
+            : "Трафик приложений идёт напрямую");
+    }
+
     private void SelectableText_GotKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
         if (sender is System.Windows.Controls.TextBox textBox)
@@ -712,6 +844,10 @@ public partial class MainWindow : Window
         SettingsCheckExitInfoBox.IsChecked = settings.CheckExitInfo;
         SettingsListenAddressBox.Text = settings.ListenAddress;
         SettingsListenPortBox.Text = settings.ListenPort.ToString();
+        SettingsEnableRoutingOnConnectBox.IsChecked = settings.EnableTrafficRoutingOnConnect;
+        SettingsRoutingModeTabs.SelectedIndex = settings.TrafficRoutingMode == TrafficRoutingModes.Blacklist ? 1 : 0;
+        PopulateRoutingApplications(SettingsProxyApplicationsList, settings.TrafficProxyApplications);
+        PopulateRoutingApplications(SettingsDirectApplicationsList, settings.TrafficDirectApplications);
         RefreshEmbeddedSettingsControls();
     }
 
@@ -739,6 +875,136 @@ public partial class MainWindow : Window
 
     private void ResetEmbeddedSettings_Click(object sender, RoutedEventArgs e) =>
         PopulateEmbeddedSettings(new AppSettings());
+
+    private static void PopulateRoutingApplications(System.Windows.Controls.ListBox listBox, string values)
+    {
+        listBox.Items.Clear();
+        foreach (var application in TrafficApplicationList.Parse(values))
+            listBox.Items.Add(CreateRoutingApplicationItem(application));
+    }
+
+    private static string ReadRoutingApplications(System.Windows.Controls.ListBox listBox) =>
+        TrafficApplicationList.Normalize(string.Join(Environment.NewLine,
+            listBox.Items.Cast<object>().Select(RoutingApplicationValue)));
+
+    private static ListBoxItem CreateRoutingApplicationItem(string value)
+    {
+        var rooted = System.IO.Path.IsPathRooted(value);
+        var fileName = System.IO.Path.GetFileName(value);
+        var displayName = string.IsNullOrWhiteSpace(fileName) ? value : fileName;
+        var detail = rooted ? System.IO.Path.GetDirectoryName(value) ?? value : "имя процесса";
+        var content = new Grid();
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        content.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        var name = new TextBlock
+        {
+            Text = displayName,
+            FontWeight = FontWeights.SemiBold,
+            Foreground = BrushFromHex("#36566A"),
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        var location = new TextBlock
+        {
+            Text = detail,
+            Foreground = MutedBrush,
+            FontSize = 9,
+            Margin = new Thickness(7, 0, 0, 0),
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center,
+        };
+        Grid.SetColumn(location, 1);
+        content.Children.Add(name);
+        content.Children.Add(location);
+        return new ListBoxItem
+        {
+            Content = content,
+            Tag = value,
+            ToolTip = value,
+            Padding = new Thickness(4, 3, 4, 3),
+            HorizontalContentAlignment = System.Windows.HorizontalAlignment.Stretch,
+        };
+    }
+
+    private static string RoutingApplicationValue(object? item) => item is ListBoxItem listBoxItem
+        ? listBoxItem.Tag?.ToString() ?? ""
+        : item?.ToString() ?? "";
+
+    private void AddProxyRoutingApplications_Click(object sender, RoutedEventArgs e) =>
+        AddRoutingApplications(SettingsProxyApplicationsList);
+
+    private void AddDirectRoutingApplications_Click(object sender, RoutedEventArgs e) =>
+        AddRoutingApplications(SettingsDirectApplicationsList);
+
+    private void RemoveProxyRoutingApplications_Click(object sender, RoutedEventArgs e) =>
+        RemoveRoutingApplications(SettingsProxyApplicationsList);
+
+    private void RemoveDirectRoutingApplications_Click(object sender, RoutedEventArgs e) =>
+        RemoveRoutingApplications(SettingsDirectApplicationsList);
+
+    private void AddRoutingApplications(System.Windows.Controls.ListBox target)
+    {
+        var dialog = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Выберите приложения",
+            Filter = "Приложения (*.exe)|*.exe",
+            Multiselect = true,
+            CheckFileExists = true,
+        };
+        if (dialog.ShowDialog(this) != true)
+            return;
+        AddRoutingApplications(target, dialog.FileNames);
+    }
+
+    private static void AddRoutingApplications(System.Windows.Controls.ListBox target, IEnumerable<string> paths)
+    {
+        var existing = new HashSet<string>(target.Items.Cast<object>().Select(RoutingApplicationValue),
+            StringComparer.OrdinalIgnoreCase);
+        foreach (var path in paths.Where(path => string.Equals(System.IO.Path.GetExtension(path), ".exe",
+                     StringComparison.OrdinalIgnoreCase)))
+        {
+            var fullPath = System.IO.Path.GetFullPath(path);
+            if (existing.Add(fullPath))
+                target.Items.Add(CreateRoutingApplicationItem(fullPath));
+        }
+        if (target.Items.Count > 0)
+            target.ScrollIntoView(target.Items[target.Items.Count - 1]);
+    }
+
+    private static void RemoveRoutingApplications(System.Windows.Controls.ListBox target)
+    {
+        foreach (var selected in target.SelectedItems.Cast<object>().ToArray())
+            target.Items.Remove(selected);
+    }
+
+    private void RoutingApplications_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != Key.Delete || sender is not System.Windows.Controls.ListBox listBox)
+            return;
+        RemoveRoutingApplications(listBox);
+        e.Handled = true;
+    }
+
+    private void RoutingApplications_DragOver(object sender, System.Windows.DragEventArgs e)
+    {
+        e.Effects = HasExecutableDrop(e.Data)
+            ? System.Windows.DragDropEffects.Copy
+            : System.Windows.DragDropEffects.None;
+        e.Handled = true;
+    }
+
+    private void RoutingApplications_Drop(object sender, System.Windows.DragEventArgs e)
+    {
+        if (sender is System.Windows.Controls.ListBox listBox &&
+            e.Data.GetData(System.Windows.DataFormats.FileDrop) is string[] paths)
+            AddRoutingApplications(listBox, paths.Where(File.Exists));
+        e.Handled = true;
+    }
+
+    private static bool HasExecutableDrop(System.Windows.IDataObject data) =>
+        data.GetDataPresent(System.Windows.DataFormats.FileDrop) &&
+        data.GetData(System.Windows.DataFormats.FileDrop) is string[] paths &&
+        paths.Any(path => File.Exists(path) && string.Equals(System.IO.Path.GetExtension(path), ".exe",
+            StringComparison.OrdinalIgnoreCase));
 
     private async void SaveEmbeddedSettings_Click(object sender, RoutedEventArgs e)
     {
@@ -768,7 +1034,23 @@ public partial class MainWindow : Window
             CheckExitInfo = SettingsCheckExitInfoBox.IsChecked == true,
             ListenAddress = address.ToString(),
             ListenPort = port,
+            EnableTrafficRoutingOnConnect = SettingsEnableRoutingOnConnectBox.IsChecked == true,
+            TrafficRoutingMode = SettingsRoutingModeTabs.SelectedIndex == 1
+                ? TrafficRoutingModes.Blacklist
+                : TrafficRoutingModes.Whitelist,
+            TrafficProxyApplications = ReadRoutingApplications(SettingsProxyApplicationsList),
+            TrafficDirectApplications = ReadRoutingApplications(SettingsDirectApplicationsList),
         };
+
+        if (updated.EnableTrafficRoutingOnConnect && updated.TrafficRoutingMode == TrafficRoutingModes.Whitelist &&
+            TrafficApplicationList.Parse(updated.TrafficProxyApplications).Count == 0)
+        {
+            System.Windows.MessageBox.Show(this,
+                "Для автоматического включения добавьте хотя бы одно приложение в белый список.",
+                "Белый список пуст", MessageBoxButton.OK, MessageBoxImage.Warning);
+            SettingsProxyApplicationsList.Focus();
+            return;
+        }
 
         try
         {
@@ -785,7 +1067,11 @@ public partial class MainWindow : Window
 
         var endpointChanged = previous.ListenAddress != updated.ListenAddress ||
                               previous.ListenPort != updated.ListenPort;
+        var routingChanged = previous.TrafficRoutingMode != updated.TrafficRoutingMode ||
+                             previous.TrafficProxyApplications != updated.TrafficProxyApplications ||
+                             previous.TrafficDirectApplications != updated.TrafficDirectApplications;
         var wasRunning = _proxyRunning;
+        var wasRouting = _trafficRouting.IsActive;
         if (endpointChanged && wasRunning)
         {
             await StopProxyAsync();
@@ -805,7 +1091,16 @@ public partial class MainWindow : Window
         if (endpointChanged && wasRunning)
         {
             await StartProxyAsync();
+            if (wasRouting && _proxyRunning && !_trafficRouting.IsActive)
+                await EnableTrafficRoutingAsync();
             return;
+        }
+
+        if (routingChanged && wasRouting)
+        {
+            await DisableTrafficRoutingAsync(silent: true);
+            if (_proxyRunning)
+                await EnableTrafficRoutingAsync();
         }
 
         if (_proxyRunning)
@@ -884,6 +1179,7 @@ public partial class MainWindow : Window
 
     private void ExitApplication()
     {
+        _trafficRouting.RequestStop();
         _allowExit = true;
         Close();
     }

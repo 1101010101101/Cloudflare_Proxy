@@ -24,6 +24,7 @@
     <Compile Include="AppSettings.cs" />
     <Compile Include="ConnectionInfoService.cs" />
     <Compile Include="RuntimeBootstrapper.cs" />
+    <Compile Include="TrafficRouting.cs" />
     <Compile Include="IsExternalInit.cs" />
     <Resource Include="..\CloudflareProxyApp\Assets\cloudflare-proxy.ico" Link="Assets\cloudflare-proxy.ico" />
     <Resource Include="..\CloudflareProxyApp\Assets\cloudflare-proxy.png" Link="Assets\cloudflare-proxy.png" />

@@ -16,6 +16,12 @@ public sealed class AppSettings
     public bool CheckExitInfo { get; set; } = true;
     public string ListenAddress { get; set; } = "127.0.0.1";
     public int ListenPort { get; set; } = 1081;
+    public bool EnableTrafficRoutingOnConnect { get; set; }
+    public string TrafficRoutingMode { get; set; } = TrafficRoutingModes.Whitelist;
+    public string TrafficProxyApplications { get; set; } = "";
+    public string TrafficDirectApplications { get; set; } = "";
+    // Kept only to migrate settings written by the first routing beta.
+    public string TrafficApplications { get; set; } = "";
 
     public AppSettings Copy() => new()
     {
@@ -26,6 +32,11 @@ public sealed class AppSettings
         CheckExitInfo = CheckExitInfo,
         ListenAddress = ListenAddress,
         ListenPort = ListenPort,
+        EnableTrafficRoutingOnConnect = EnableTrafficRoutingOnConnect,
+        TrafficRoutingMode = TrafficRoutingMode,
+        TrafficProxyApplications = TrafficProxyApplications,
+        TrafficDirectApplications = TrafficDirectApplications,
+        TrafficApplications = "",
     };
 }
 
@@ -90,7 +101,21 @@ public static class SettingsService
             throw new InvalidOperationException("Этот IPv4-адрес нельзя использовать для SOCKS5.");
         if (settings.ListenPort is < 1 or > 65535)
             throw new InvalidOperationException("Порт должен быть от 1 до 65535.");
+        if (settings.TrafficRoutingMode is not (TrafficRoutingModes.Whitelist or TrafficRoutingModes.Blacklist))
+            throw new InvalidOperationException("Неизвестный режим списка приложений.");
+        if (!string.IsNullOrWhiteSpace(settings.TrafficApplications))
+        {
+            if (settings.TrafficRoutingMode == TrafficRoutingModes.Blacklist &&
+                string.IsNullOrWhiteSpace(settings.TrafficDirectApplications))
+                settings.TrafficDirectApplications = settings.TrafficApplications;
+            else if (settings.TrafficRoutingMode == TrafficRoutingModes.Whitelist &&
+                     string.IsNullOrWhiteSpace(settings.TrafficProxyApplications))
+                settings.TrafficProxyApplications = settings.TrafficApplications;
+            settings.TrafficApplications = "";
+        }
         settings.ListenAddress = address.ToString();
+        settings.TrafficProxyApplications = TrafficApplicationList.Normalize(settings.TrafficProxyApplications);
+        settings.TrafficDirectApplications = TrafficApplicationList.Normalize(settings.TrafficDirectApplications);
     }
 
     private static void ApplyWindowsStartup(bool enabled)
